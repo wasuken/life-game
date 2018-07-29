@@ -2,15 +2,24 @@
 
 (defparameter *dead* "*")
 (defparameter *live* "O")
-(defparameter *table* (loop for j from 0 to 19
-						 collect (create-line 20 *dead*)))
 
 (defun create-line (len sel-val)
   (loop for i from 0 to (1- len)
 	 collect (format nil sel-val)))
 
+(defparameter *table* (loop for j from 0 to 19
+						 collect (create-line 20 *dead*)))
+
+(defun rangep (begin end x)
+  (and (>= x begin) (<= x end)))
+
+(defun pair-rangep (begin end x)
+  (and (rangep begin end (car x))
+	   (rangep begin end (cdr x))))
+
 (defun sel-positionp (table x y)
-  (cond ((and (> (length table) y) (> (length (car table)) x))
+  (cond ((and (rangep 0 (length (car table)) x)
+			  (rangep 0 (length table) y))
 		 (nth x (nth y table)))))
 
 (defun get-sel (table x y)
@@ -34,24 +43,18 @@
 	random-sels))
 
 (defun get-sel-around (table x y)
-  (let* ((sel-around (mapcan #'(lambda (x) x)
+  (if (and (rangep 0 (1- (length (car table))) x)
+		   (rangep 0 (1- (length table)) y))
+	  (let* ((sel-around (mapcan #'(lambda (x) x)
 							 (loop for i from (1- x) to (1+ x)
 								collect (loop for j from (1- y) to (1+ y)
 										   collect (cons i j)))))
 		 (sel-around-without-me-and-outrange
-		  (remove-if #'(lambda (z)
-						 (or (<= (length table)
-								 (car z))
-							 (<= (length (car table))
-								 (cdr z))
-							 (>  0
-								 (car z))
-							 (>  0
-								 (cdr z))
-							 (and (= (car z) x) (= (cdr z) y))
-							 ))
-					 sel-around)))
-	sel-around-without-me-and-outrange))
+		  (remove-if-not #'(lambda (z)
+							 (and (pair-rangep 0 19 z)
+								  (not (and (= (car z) x) (= (cdr z) y)))))
+						 sel-around)))
+	sel-around-without-me-and-outrange)))
 
 (defun sel-fate (table x y)
   (let* ((around-list (get-sel-around table x y))
@@ -69,9 +72,10 @@
 
 (defun check-table-sels-fate (table)
   (let ((all-position-list
-		 (mapcan #'(lambda (x) x) (loop for i from 0 to (1- (length table))
-									 collect (loop for j from 0 to (1- (length (car table)))
-												collect (cons i j))))))
+		 (mapcan #'(lambda (x) x)
+				 (loop for i from 0 to (1- (length table))
+					collect (loop for j from 0 to (1- (length (car table)))
+							   collect (cons i j))))))
 	(mapcar #'(lambda (x) (sel-fate table (car x) (cdr x))) all-position-list)))
 
 (defun main-loop ()
@@ -79,4 +83,5 @@
 						 collect (create-line 20 *dead*)))
   (random-set-sels *table*)
   (loop repeat 100
+	   ;; この出力はテーブルの内容と関わりがあるが、テーブルではない。
 	   do (print (check-table-sels-fate *table*))))
